@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Mohamed Tamer Portfolio"
+version = "1.0.0"
+id = "artifacts/mohamed-tamer-portfolio"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24982
+
+[services.development]
+run = "pnpm --filter @workspace/mohamed-tamer-portfolio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mohamed-tamer-portfolio", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/mohamed-tamer-portfolio/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24982"
+BASE_PATH = "/"
