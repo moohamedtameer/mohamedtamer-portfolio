@@ -202,8 +202,12 @@ const KEY_THEME      = 'mt-theme';
 const KEY_HERO       = 'mt-hero';
 
 // ==========================================
-// 7. دوال جلب واسترجاع البيانات
+// 7. دوال جلب واسترجاع البيانات مع الترتيب التلقائي
 // ==========================================
+function sortProjects(list: Project[]): Project[] {
+  return [...list].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
+}
+
 function loadJson<T>(key: string, fallback: T): T {
   try {
     const raw = window.localStorage.getItem(key);
@@ -315,7 +319,6 @@ async function pdfToImages(file: File): Promise<string[]> {
 async function loadPdfImagesFromPath(path: string): Promise<string[]> {
   try {
     const resolvedPath = resolveAssetPath(path);
-    // تم التصحيح هنا: استخدام كائن url بدلاً من تمرير النص مباشرة لضمان التوافق التام مع pdfjs-dist
     const pdf = await pdfjsLib.getDocument({ url: resolvedPath }).promise;
     const images: string[] = [];
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -688,19 +691,19 @@ export default function App() {
   const [projects, setProjects]     = useState<Project[]>(() => {
     const saved = window.localStorage.getItem(KEY_PROJECTS);
     if (saved) {
-      try { return JSON.parse(saved); } catch { /* fallback */ }
+      try { return sortProjects(JSON.parse(saved)); } catch { /* fallback */ }
     }
-    return DEFAULT_PROJECTS;
+    return sortProjects(DEFAULT_PROJECTS);
   });
   
-  // جلب المشاريع من Supabase تلقائياً عند التحميل
+  // جلب المشاريع من Supabase مرتبة تصاعدياً تلقائياً عند التحميل
   useEffect(() => {
     async function fetchProjectsFromSupabase() {
       try {
         const client = getSupabaseClient(getToken);
-        const { data, error } = await client.from('projects').select('*');
+        const { data, error } = await client.from('projects').select('*').order('number', { ascending: true });
         if (!error && data && data.length > 0) {
-          setProjects(data);
+          setProjects(sortProjects(data));
         }
       } catch (err) {
         console.error('Error fetching projects from Supabase:', err);
@@ -771,7 +774,8 @@ export default function App() {
   }, [projects, skills, tools, about, heroMeta, profileImage, logoImage, transform]);
 
   async function saveAll() {
-    safeSet(KEY_PROJECTS, JSON.stringify(projects));
+    const sortedProj = sortProjects(projects);
+    safeSet(KEY_PROJECTS, JSON.stringify(sortedProj));
     safeSet(KEY_SKILLS, JSON.stringify(skills));
     safeSet(KEY_TOOLS, JSON.stringify(tools));
     safeSet(KEY_ABOUT, JSON.stringify(about));
@@ -782,10 +786,10 @@ export default function App() {
     if (logoImage) safeSet(KEY_LOGO, logoImage);
     else window.localStorage.removeItem(KEY_LOGO);
 
-    // مزامنة البيانات وتحديث الجدول في Supabase عند الضغط على الحفظ باستخدام التوكن
+    // مزامنة البيانات وتحديث الجدول في Supabase عند الضغط على الحفظ
     try {
       const client = getSupabaseClient(getToken);
-      const { error } = await client.from('projects').upsert(projects, { onConflict: 'number' });
+      const { error } = await client.from('projects').upsert(sortedProj, { onConflict: 'number' });
       if (error) {
         console.error('Supabase sync error:', error);
         setStorageError('Saved locally, but failed to sync with Supabase database.');
@@ -820,15 +824,16 @@ export default function App() {
   };
 
   const updateProject = (num: string, updates: Partial<Project>) =>
-    setProjects((ps) => ps.map((p) => (p.number === num ? { ...p, ...updates } : p)));
+    setProjects((ps) => sortProjects(ps.map((p) => (p.number === num ? { ...p, ...updates } : p))));
 
   const addProject = () => {
-    const next = String(Math.max(0, ...projects.map((p) => Number(p.number) || 0)) + 1).padStart(2, '0');
-    setProjects((ps) => [...ps, { number: next, name: 'New project', category: 'HVAC Design', description: 'Add a short description.', scope: '', images: [], pdfPath: '', driveUrl: '', tabs: [] }]);
+    const maxNum = Math.max(0, ...projects.map((p) => parseInt(p.number, 10) || 0));
+    const next = String(maxNum + 1).padStart(2, '0');
+    setProjects((ps) => sortProjects([...ps, { number: next, name: 'New project', category: 'HVAC Design', description: 'Add a short description.', scope: '', images: [], pdfPath: '', driveUrl: '', tabs: [] }]));
   };
 
   const removeProject = (num: string) => {
-    setProjects((ps) => ps.filter((p) => p.number !== num));
+    setProjects((ps) => sortProjects(ps.filter((p) => p.number !== num)));
     if (activeProject?.number === num) setActiveProject(null);
   };
 
@@ -949,7 +954,7 @@ export default function App() {
       {/* ==========================================
           13. شريط التنقل العلوي (Navigation Bar)
           ========================================== */}
-      <nav className="site-nav" aria-label="Primary navigation">
+      <nav className="site-nav" aria-label="Primary navigation" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000, background: 'var(--bg)', backdropFilter: 'blur(8px)' }}>
         <div className="wrap nav-inner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <a className="brand" href="#top" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', minWidth: 0 }}>
             {currentLogo ? (
@@ -1036,9 +1041,9 @@ export default function App() {
       </nav>
 
       {/* ==========================================
-          14. القسم الرئيسي الترحيبي (Hero Section)
+          14. القسم الرئيسي الترحيبي (Hero Section) - مع مسافة علوية لمنع التداخل
           ========================================== */}
-      <div id="top" className="hero" style={{ padding: '60px 0 40px' }}>
+      <div id="top" className="hero" style={{ padding: '140px 0 60px' }}>
         <div className="wrap" style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '820px' }}>
           
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
@@ -1217,6 +1222,7 @@ export default function App() {
                         <button className="delete-project" type="button" onClick={() => removeProject(project.number)}>Delete project</button>
                       </div>
                       <div className="editor-fields">
+                        <label>Project number<input value={project.number} onChange={(e) => updateProject(project.number, { number: e.target.value })} /></label>
                         <label>Project name<input value={project.name} onChange={(e) => updateProject(project.number, { name: e.target.value })} /></label>
                         <label>Category<input value={project.category} onChange={(e) => updateProject(project.number, { category: e.target.value })} /></label>
                         <label>Scope<input value={project.scope ?? ''} placeholder="e.g. Load calc, duct design" onChange={(e) => updateProject(project.number, { scope: e.target.value })} /></label>
