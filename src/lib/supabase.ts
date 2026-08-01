@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// إضافة قيم احتياطية لضمان عمل التطبيق على GitHub Pages حتى لو لم يقرأ متغيرات البيئة
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://vhrqbrmxhbgfpszwagur.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_U042KI08tag9-M3qjbNDHQ_XQaLhmHq';
 
 // دالة تنشئ العميل وترسل توكن Clerk تلقائياً
 export const getSupabaseClient = (getToken: (options?: { template?: string }) => Promise<string | null>) => {
