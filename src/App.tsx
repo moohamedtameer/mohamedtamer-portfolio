@@ -3,7 +3,7 @@
 // ==========================================
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser, useAuth, useClerk } from '@clerk/clerk-react';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { ChangeEvent, MouseEvent } from 'react';
+import type { ChangeEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { ArrowRight, Menu, Moon, Sun, X, LogOut, ZoomIn, ZoomOut, ExternalLink, Layers } from 'lucide-react';
 import { useLocation } from 'wouter';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -315,7 +315,8 @@ async function pdfToImages(file: File): Promise<string[]> {
 async function loadPdfImagesFromPath(path: string): Promise<string[]> {
   try {
     const resolvedPath = resolveAssetPath(path);
-    const pdf = await pdfjsLib.getDocument(resolvedPath).promise;
+    // تم التصحيح هنا: استخدام كائن url بدلاً من تمرير النص مباشرة لضمان التوافق التام مع pdfjs-dist
+    const pdf = await pdfjsLib.getDocument({ url: resolvedPath }).promise;
     const images: string[] = [];
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
@@ -813,7 +814,7 @@ export default function App() {
 
   useEffect(() => { if (!isSignedIn || !isOwner) setEditorOpen(false); }, [isSignedIn, isOwner]);
 
-  const openProject = (p: Project, e: MouseEvent<HTMLButtonElement>) => {
+  const openProject = (p: Project, e: React.MouseEvent<HTMLButtonElement>) => {
     triggerRef.current = e.currentTarget;
     setActiveProject(p);
   };
@@ -905,13 +906,13 @@ export default function App() {
 
   const dragStart = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
 
-  const onPreviewMouseDown = useCallback((e: MouseEvent<HTMLDivElement>) => {
+  const onPreviewMouseDown = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
     if (!profileImage) return;
     dragStart.current = { x: e.clientX, y: e.clientY, tx: transform.x, ty: transform.y };
     e.preventDefault();
   }, [profileImage, transform.x, transform.y]);
 
-  const onPreviewMouseMove = useCallback((e: MouseEvent<HTMLDivElement>) => {
+  const onPreviewMouseMove = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
     if (!dragStart.current) return;
     const dx = ((e.clientX - dragStart.current.x) / 104) * 100;
     const dy = ((e.clientY - dragStart.current.y) / 104) * 100;
