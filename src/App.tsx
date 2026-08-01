@@ -7,20 +7,17 @@ import type { ChangeEvent, MouseEvent } from 'react';
 import { ArrowRight, Menu, Moon, Sun, X, LogOut, ZoomIn, ZoomOut, ExternalLink, Layers } from 'lucide-react';
 import { useLocation } from 'wouter';
 import * as pdfjsLib from 'pdfjs-dist';
-import { createClient } from '@supabase/supabase-js';
+
+// استيراد دالة جلب عميل Supabase المدعوم بالتوكن
+import { getSupabaseClient } from './lib/supabase';
 
 // استيراد صور اللوجو الخاصة بالـ Light Mode والـ Dark Mode
 import logoImageLight from "./logoImagelightmode.png";
 import logoImageDark from "./logoImagedarkmode.png";
 
 // ==========================================
-// 2. إعداد Supabase وتوصيل قاعدة البيانات
+// 2. متغيرات البيئة للبيانات الشخصية وسرية التطبيق
 // ==========================================
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// متغيرات البيئة للبيانات الشخصية وسرية التطبيق
 const OWNER_EMAIL = import.meta.env.VITE_OWNER_EMAIL || '';
 const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || '';
 const CONTACT_PHONE = import.meta.env.VITE_CONTACT_PHONE || '';
@@ -672,7 +669,7 @@ function ProfilePhoto({ src, transform }: { src: string; transform: ProfileTrans
 // 12. المكون الرئيسي للتطبيق (App Component)
 // ==========================================
 export default function App() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
   const { signOut } = useClerk();
   const { user } = useUser();
   const [, setLocation] = useLocation();
@@ -699,7 +696,8 @@ export default function App() {
   useEffect(() => {
     async function fetchProjectsFromSupabase() {
       try {
-        const { data, error } = await supabase.from('projects').select('*');
+        const client = getSupabaseClient(getToken);
+        const { data, error } = await client.from('projects').select('*');
         if (!error && data && data.length > 0) {
           setProjects(data);
         }
@@ -708,7 +706,7 @@ export default function App() {
       }
     }
     fetchProjectsFromSupabase();
-  }, []);
+  }, [getToken]);
   
   const [skills, setSkills]         = useState(loadSkills);
   const [tools, setTools]           = useState(loadTools);
@@ -783,9 +781,10 @@ export default function App() {
     if (logoImage) safeSet(KEY_LOGO, logoImage);
     else window.localStorage.removeItem(KEY_LOGO);
 
-    // مزامنة البيانات وتحديث الجدول في Supabase عند الضغط على الحفظ
+    // مزامنة البيانات وتحديث الجدول في Supabase عند الضغط على الحفظ باستخدام التوكن
     try {
-      const { error } = await supabase.from('projects').upsert(projects, { onConflict: 'number' });
+      const client = getSupabaseClient(getToken);
+      const { error } = await client.from('projects').upsert(projects, { onConflict: 'number' });
       if (error) {
         console.error('Supabase sync error:', error);
         setStorageError('Saved locally, but failed to sync with Supabase database.');
